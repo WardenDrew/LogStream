@@ -1,0 +1,327 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>LogStream</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" type="text/css" />
+
+    <style>
+        #loading-bar-spinner.spinner {
+            left: 50%;
+            margin-left: -70px;
+            top: 50%;
+            margin-top: -70px;
+            position: absolute;
+            z-index: 19 !important;
+            animation: loading-bar-spinner 400ms linear infinite;
+        }
+
+            #loading-bar-spinner.spinner .spinner-icon {
+                width: 140px;
+                height: 140px;
+                border: solid 8px transparent;
+                border-top-color: #00C8B1 !important;
+                border-left-color: #00C8B1 !important;
+                border-radius: 50%;
+            }
+
+        @keyframes loading-bar-spinner {
+            0% {
+                transform: rotate(0deg);
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+                transform: rotate(360deg);
+            }
+        }
+
+        ul.tree,
+        ul.tree ul {
+            margin: 0;
+            padding: 0;
+        }
+
+            ul.tree ul {
+                margin-left: 2.0em;
+            }
+
+            ul.tree li {
+                margin-left: 0.35em;
+            }
+
+                ul.tree li:before {
+                    width: 0.9em;
+                    height: 0.6em;
+                    margin-right: 0.5em;
+                    vertical-align: top;
+                    display: inline-block;
+                }
+
+        .header {
+            display: flex;
+            align-items: center;
+        }
+
+        .hostname {
+            font-weight: bold;
+            font-size: 2em;
+        }
+
+
+
+        .file {
+            display: inline-block;
+            background-color: lightgoldenrodyellow;
+            border-radius: 5px;
+            margin-top: 0.2em;
+            margin-bottom: 0.2em;
+            padding: 0.2em 0.5em;
+            box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+        }
+
+            .file::marker {
+                content: none;
+            }
+
+        .text {
+            font-size: medium;
+            font-style: normal;
+            font-weight: normal;
+            color: black;
+        }
+
+        .bold {
+            font-weight: bold;
+        }
+
+        .directory {
+            display: inline-block;
+            background-color: lightskyblue;
+            border-radius: 5px;
+            margin-top: 0.2em;
+            margin-bottom: 0.2em;
+            padding: 0.2em 0.5em;
+            box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+            min-height: 1.7em;
+        }
+
+            .directory::before {
+                color: DodgerBlue;
+                font-size: 1.7em;
+            }
+
+        .nofile {
+            display: inline-block;
+            background-color: crimson;
+            color: white;
+            border-radius: 5px;
+            margin-top: 0.2em;
+            margin-bottom: 0.2em;
+            padding: 0.2em 0.5em;
+            box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+        }
+
+            .nofile::before {
+                color: white;
+            }
+
+        .button {
+            background-color: Crimson;
+            border-radius: 5px;
+            color: white;
+            padding: 0.4em;
+            text-decoration: none;
+            margin-right: 0.5em;
+        }
+
+            .button:focus,
+            .button:hover {
+                background-color: FireBrick;
+                color: White;
+            }
+    </style>
+
+    <script>
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        const thisPage = window.location.origin + window.location.pathname;
+        var returnTo = urlParams.get('returnto');
+
+        document.title = document.title + " " + window.location.hostname;
+
+        $(document).ready(function () {
+            $('.hostname').append(window.location.hostname);
+            $('.refresh').click(function () {
+                location.reload();
+            });
+
+            var year = new Date().getFullYear();
+            if (year > 2021) {
+                year = "2021-" + year;
+            }
+            $('.year').append(year);
+
+            $.ajax({
+                url: "api/log",
+                timeout: 5000
+            }).done(function (data, textStatus, jqXHR) {
+                var treeData = "";
+                treeData = "<li id=\"" + hashCode("LOOSE LOG FILES") + "\" class=\"directory\"><button class=\"button directory-button\" title=\"Expand/Contract Folder\"><i class=\"fas fa-folder\"></i></button>" +
+                    "<span class=\"text bold\">Loose Log Files</span>" +
+                    "<ul class=\"directory-children\">";
+
+                $.each(data, function (i, item) {
+                    if (item["type"] == "FILE") {
+                        treeData = treeData + "<li id=\"" + hashCode(item["fullName"]) + "\" class=\"file\">" +
+                            "<button class=\"button\" title=\"Download\" onclick=\"location.href=\'api/log/download?filename=" + encodeURIComponent(item["fullName"]) + "\';\"><i class=\"fas fa-download\"></i></button>" +
+                            "<button class=\"button\" title=\"Live View\" onclick=\"goToLivePage(\'" + encodeURIComponent(item["fullName"]) + "\');\"><i class=\"fas fa-play-circle\"></i></button>" +
+                            "<span class=\"text bold\">" + item["fullName"] + "</span><span class=\"text\">&nbsp;| " + item["fileSize"] + " | " + item["lastModified"] + "</span></li><br/>";
+                    }
+                });
+
+                treeData = treeData + "</ul></li><br/>";
+
+                $.each(data, function (i, item) {
+                    if (item["type"] == "DIRECTORY") {
+                        treeData = treeData + "<li id=\"" + hashCode(item["fullName"]) + "\" class=\"directory\"><button class=\"button directory-button\" title=\"Expand/Contract Folder\"><i class=\"fas fa-folder\"></i></button>" +
+                            "<span class=\"text bold\">" + item["fullName"] + "</span>" +
+                            "<ul class=\"directory-children\">" +
+                            parseDirectory(item["children"]) +
+                            "</ul></li><br/>";
+                    }
+                });
+
+                $('.tree').append(treeData);
+
+                $('.tree ul').hide();
+                $('.directory-button').click(function () {
+                    if ($(this).parent().children('ul').first().is(':hidden')) {
+
+                        returnTo = $(this).parent().attr('id');
+                        window.history.pushState(null, null, thisPage + '?returnto=' + encodeURIComponent(returnTo));
+
+                        var buttonIcon = $(this).children().first();
+                        buttonIcon.addClass('fa-folder-open');
+                        buttonIcon.removeClass('fa-folder');
+
+                        var parentSiblings = $(this).parent().siblings();
+                        parentSiblings.find('ul:visible').slideToggle('fast');
+                        var parentSiblingsOpenButtonIcons = parentSiblings.find('.fa-folder-open');
+                        parentSiblingsOpenButtonIcons.addClass('fa-folder');
+                        parentSiblingsOpenButtonIcons.removeClass('fa-folder-open');
+                    }
+                    else {
+                        var outerList = $(this).parent().parent();
+                        if (outerList.hasClass('tree')) {
+                            returnTo = null;
+                            window.history.pushState(null, null, thisPage);
+                        }
+                        else {
+                            returnTo = outerList.parent().attr('id');
+                            window.history.pushState(null, null, thisPage + '?returnto=' + encodeURIComponent(returnTo));
+                        }
+
+                        var visibleChildLists = $(this).parent().children('ul').first().find('ul:visible');
+                        var visibleChildButtonIcons = visibleChildLists.siblings('button').children();
+                        visibleChildButtonIcons.addClass('fa-folder');
+                        visibleChildButtonIcons.removeClass('fa-folder-open');
+
+                        var thisButtonIcon = $(this).children().first();
+                        thisButtonIcon.addClass('fa-folder');
+                        thisButtonIcon.removeClass('fa-folder-open');
+
+                        visibleChildLists.slideToggle('fast');
+
+                    }
+
+                    $(this).parent().children('ul').slideToggle('fast');
+                });
+
+                if (returnTo && $('#' + returnTo).length) {
+                    var hiddenParentLists = $('#' + returnTo).parents('ul:hidden');
+
+                    var hiddenParentButtonIcons = hiddenParentLists.siblings('button').children();
+                    hiddenParentButtonIcons.addClass('fa-folder-open');
+                    hiddenParentButtonIcons.removeClass('fa-folder');
+
+                    var thisButtonIcon = $('#' + returnTo).children('button').first().children().first();
+                    thisButtonIcon.addClass('fa-folder-open');
+                    thisButtonIcon.removeClass('fa-folder');
+
+                    hiddenParentLists.show();
+                    $('#' + returnTo).children('ul').show();
+                }
+
+                $('.collapse-all').click(function () {
+                    location.href = thisPage;
+                });
+
+            }).fail(function (jqXHR, textStatus, errorThrown) {
+                $('.error').append(jqXHR.responseText);
+            }).always(function (jqXHR, textStatus, errorThrown) {
+                $('.spinner').hide();
+            });
+        });
+
+        function parseDirectory(data) {
+            var result = "";
+            if (data === null) { return result; }
+
+            $.each(data, function (i, item) {
+                if (item["type"] == "DIRECTORY") {
+                    result = result + "<li id=\"" + hashCode(item["fullName"]) + "\" class=\"directory\"><button class=\"button directory-button\" title=\"Expand/Contract Folder\"><i class=\"fas fa-folder\"></i></button>" +
+                        "<span class=\"text bold\">" + item["name"] + "</span>" +
+                        "<ul class=\"directory-children\">" +
+                        parseDirectory(item["children"]) +
+                        "</ul></li><br/>";
+                }
+                else if (item["type"] == "FILE") {
+                    result = result + "<li id=\"" + hashCode(item["fullName"]) + "\" class=\"file\">" +
+                        "<button class=\"button\" title=\"Download\" onclick=\"location.href=\'api/log/download?filename=" + encodeURIComponent(item["fullName"]) + "\';\"><i class=\"fas fa-download\"></i></button>" +
+                        "<button class=\"button\" title=\"Live View\" onclick=\"goToLivePage(\'" + encodeURIComponent(item["fullName"]) + "\');\"><i class=\"fas fa-play-circle\"></i></button>" +
+                        "<span class=\"text bold\">" + item["name"] + "</span><span class=\"text\">&nbsp;| " + item["fileSize"] + " | " + item["lastModified"] + "</span></li><br/>";
+                }
+            });
+
+            if (result == "") {
+                result = "<li class=\"nofile fas fa-exclamation-triangle\">" +
+                    "<span>No files</span></li>";
+            }
+
+            return result;
+        }
+
+        function hashCode(s) {
+            for (var i = 0, h = 0; i < s.length; i++)
+                h = Math.imul(31, h) + s.charCodeAt(i) | 0;
+            return h;
+        }
+
+        function goToLivePage(fn) {
+            location.href = "live.html?filename=" + fn + "&returnto=" + encodeURIComponent(returnTo);
+        }
+    </script>
+</head>
+<body>
+    <div id="loading-bar-spinner" class="spinner"><div class="spinner-icon"></div></div>
+    <div class="header">
+        <button class="collapse-all button" title="Collapse All"><i class="fas fa-arrow-circle-up"></i></button>
+        <button class="refresh button" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+        <span class="hostname"></span>
+    </div>
+    <div class="error"></div>
+    <div class="logfiles">
+        <ul class="tree">
+        </ul>
+    </div>
+    <div class="footer">
+        <p>LogStream &copy; <span class="year"></span>, Andrew Haskell.</p>
+    </div>
+</body>
+</html>

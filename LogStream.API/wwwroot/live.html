@@ -1,0 +1,162 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>LogStream</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" type="text/css" />
+
+    <style>
+        body {
+            height: 100%;
+        }
+
+        textarea {
+            margin-top: 1em;
+            width: 99%;
+            height: 80vh;
+            resize: none;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+        }
+
+        .hostname {
+            font-weight: bold;
+            font-size: 2em;
+        }
+
+        .filename {
+            margin-left: 1em;
+            font-weight: bold;
+            font-size: 1em;
+        }
+
+        .button {
+            background-color: Crimson;
+            border-radius: 5px;
+            color: white;
+            padding: 0.4em;
+            text-decoration: none;
+            margin-right: 0.5em;
+        }
+
+            .button:focus,
+            .button:hover {
+                background-color: FireBrick;
+                color: White;
+            }
+    </style>
+
+    <script>
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        const url = getUrl = window.location;
+        const filename = urlParams.get('filename');
+        const returnTo = urlParams.get('returnto');
+        var wsURI = "/api/log/live";
+        var output
+
+        document.title = document.title + " " + window.location.hostname + " -> " + filename;
+
+        function init() {
+            wsURI = 'wss://' + url.host + wsURI + '?filename=' + encodeURIComponent(filename);
+
+            output = document.getElementById("output");
+            testWebSocket();
+        }
+
+        function testWebSocket() {
+            websocket = new WebSocket(wsURI);
+            websocket.onopen = function (evt) { onOpen(evt) };
+            websocket.onclose = function (evt) { onClose(evt) };
+            websocket.onmessage = function (evt) { onMessage(evt) };
+            websocket.onerror = function (evt) { onError(evt) };
+        }
+
+        function onOpen(evt) {
+            writeToScreen("===== WEBSOCKET LOG CONNECTED =====\\n");
+        }
+
+        function onClose(evt) {
+            writeToScreen("===== WEBSOCKET LOG DISCONNECTED =====\\n");
+        }
+
+        function onMessage(evt) {
+            writeToScreen(evt.data);
+        }
+
+        function onError(evt) {
+            writeToScreen("===== WEBSOCKET LOG ERROR =====\\n" + evt.data + "\\n===============================\\n");
+        }
+
+        function writeToScreen(message) {
+            var newline = String.fromCharCode(13, 10);
+
+            var str = message.replaceAll('\\n', newline).replace(/\0.*$/g, '');
+            //var excess = output.value.length + str.length - 4096;
+            var original = output.value;
+
+            /*if (excess > 0) {
+                original = output.value.substring(excess);
+            }*/
+
+            output.value = original + str;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function hashCode(s) {
+            for (var i = 0, h = 0; i < s.length; i++)
+                h = Math.imul(31, h) + s.charCodeAt(i) | 0;
+            return h;
+        }
+
+        $(document).ready(function () {
+            $('.hostname').append(window.location.hostname);
+            if (filename) {
+
+                $('.filename').append(filename);
+
+                init();
+            }
+            else {
+                $('.filename').append("NO FILE SPECIFIED");
+            }
+
+            $('.refresh').click(function () {
+                location.reload();
+            });
+
+            $('.home').click(function () {
+                location.href = "/?returnto=" + returnTo;
+            });
+
+
+            var year = new Date().getFullYear();
+            if (year > 2021) {
+                year = "2021-" + year;
+            }
+            $('.year').append(year);
+        });
+    </script>
+</head>
+<body>
+    <div class="header">
+        <button class="home button" title="Return Home"><i class="fas fa-arrow-circle-left"></i></button>
+        <button class="refresh button" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+        <span class="hostname"></span>
+    </div>
+    <div class="header">
+        <span class="filename"></span><span>&nbsp;( Last 4KB loaded )</span>
+    </div>
+    <textarea id="output" readonly></textarea>
+    <div class="footer">
+        <p>LogStream &copy; <span class="year"></span>, Andrew Haskell.</p>
+    </div>
+</body>
+</html>
