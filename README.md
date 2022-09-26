@@ -1,3 +1,7 @@
+# ARCHIVED
+
+I made this for a specific internal purpose. I would not suggest using it any further
+
 # LogStream
 Lightweight Log File web gui with live websockets
 
